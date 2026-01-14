@@ -12,6 +12,7 @@ from src.historique import Historique
 from src.exceptions import CalculatriceError
 
 
+#com
 class CalculatriceGUI: 
     """Interface graphique de la calculatrice"""
     
