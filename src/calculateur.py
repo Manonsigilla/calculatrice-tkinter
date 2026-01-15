@@ -57,15 +57,23 @@ def tokenize(expression: str) -> list:
         >>> tokenize("3. 14 * (2 + 1)")
         ['3.14', '*', '(', '2', '+', '1', ')']
     """
-    # TODO: À compléter par Personne 1
-    # Parcourir l'expression caractère par caractère
-    # Regrouper les chiffres ensemble (ex: "123" → un seul token)
-    # Gérer les nombres décimaux (ex: "3.14" → un seul token)
-    # Séparer les opérateurs et parenthèses
+    # Enlever tous les espaces
+    expression = expression.replace(" ", "").replace(",", ".")
     
     tokens = []
-    # Votre code ici... 
-    
+    nombre_courant = ""
+    for char in expression:
+        if char.isdigit() or char == '.':
+            # c'est une chiffre ou un point donc on construit le nombre
+            nombre_courant += char
+        else:
+            # c'est un opérateur ou une parenthèse
+            if nombre_courant:
+                tokens.append(nombre_courant) # ajouter le nombre construit
+                nombre_courant = "" # réinitialiser pour le prochain nombre
+            tokens.append(char) # ajouter l'opérateur ou la parenthèse
+    if nombre_courant:
+        tokens.append(nombre_courant) # ajouter le dernier nombre s'il existe
     return tokens
 
 
@@ -92,19 +100,37 @@ def infix_to_rpn(tokens: list) -> list:
         '-': 1,
         '*': 2,
         '/':  2,
-        '^': 3  # Optionnel : puissance
+        '^': 3  
     }
     
-    # TODO: À compléter par Personne 1
-    # Implémenter l'algorithme Shunting Yard
-    # Utiliser une pile pour les opérateurs
-    # Utiliser une liste pour la sortie
+    output = [] # Liste de sortie (RPN, résultat final)
+    stack = [] # Pile pour les opérateurs et parenthèses
     
-    output = []
-    stack = []
+    for token in tokens:
+        if est_nombre(token):
+            output.append(token) # Ajouter les nombres si c'est des nombres directement dans output
+        
+        elif token == '(':
+            stack.append(token) # Empiler les parenthèses ouvrantes
+            
+        elif token == ')':
+            # Dépiler jusqu'à la parenthèse ouvrante
+            while stack and stack[-1] != '(':
+                output.append(stack.pop())
+            if stack:
+                stack.pop() # Retirer la parenthèse ouvrante de la pile
+                
+        elif token in precedence:
+            # Dépiler les opérateurs de la pile selon la priorité
+            while (stack and stack[-1] != '(' and
+                   precedence.get(stack[-1], 0) >= precedence[token]):
+                output.append(stack.pop())
+            stack.append(token) # Empiler l'opérateur courant
     
-    # Votre code ici...
-    
+    # Vider la pile restante
+    while stack:
+        output.append(stack.pop())
+        
     return output
 
 
@@ -127,11 +153,7 @@ def evaluer_rpn(rpn: list) -> float:
         >>> evaluer_rpn(['2', '3', '+', '4', '*'])
         20.0
     """
-    # TODO: À compléter par Personne 1
-    # Utiliser une pile
-    # Pour chaque token : 
-    #   - Si c'est un nombre :  empiler
-    #   - Si c'est un opérateur : dépiler 2 nombres, calculer, empiler le résultat
+    from src.exceptions import DivisionParZeroError
     
     stack = []
     
@@ -139,9 +161,13 @@ def evaluer_rpn(rpn: list) -> float:
         if est_nombre(token):
             stack.append(float(token))
         else:
+            # Si c'est un opérateur -> dépiler deux nombres, calculer, et empiler le résultat
+            if len(stack) < 2:
+                raise ExpressionInvalideError("Expression RPN invalide")
+            
             # Dépiler les deux derniers nombres
-            b = stack. pop()
-            a = stack. pop()
+            b = stack.pop() # Deuxième opérande
+            a = stack.pop() # Premier opérande
             
             # Appliquer l'opération
             if token == '+':
@@ -154,9 +180,14 @@ def evaluer_rpn(rpn: list) -> float:
                 if b == 0:
                     raise DivisionParZeroError()
                 resultat = a / b
-            # Ajouter d'autres opérateurs si besoin
+            elif token == '^':
+                resultat = a ** b
+            else:
+                raise ExpressionInvalideError(f"Opérateur inconnu '{token}'")
             
             stack.append(resultat)
+    if len(stack) != 1:
+        raise ExpressionInvalideError("Expression RPN invalide")
     
     return stack[0]
 

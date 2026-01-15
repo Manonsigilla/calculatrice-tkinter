@@ -70,7 +70,7 @@ class Historique:
             >>> len(hist.afficher())
             0
         """
-        self. operations.clear()
+        self.operations.clear()
         self.sauvegarder()
     
     def sauvegarder(self):
@@ -111,7 +111,7 @@ class Historique:
         if Path(self.fichier).exists():
             try:
                 with open(self.fichier, 'r', encoding='utf-8') as f:
-                    self. operations = json.load(f)
+                    self.operations = json.load(f)
                     
                 # Validation :  s'assurer que c'est une liste
                 if not isinstance(self.operations, list):
@@ -139,6 +139,23 @@ class Historique:
         except Exception as e:
             print(f"Impossible de créer un backup : {e}")
     
+    def obtenir_historique(self):
+        """
+        Retourne l'historique sous forme de tuple (expression, resultat, timestamp)
+        pour l'affichage dans l'interface. 
+        
+        Returns:
+            list: Liste de tuples (expression, resultat, timestamp)
+        """
+        resultats = []
+        for op in self.operations:
+            resultats.append((
+                op['expression'],
+                op['resultat'],
+                op['timestamp']
+            ))
+        return resultats
+
     def obtenir_dernier(self):
         """
         Retourne la dernière opération effectuée.
@@ -147,7 +164,7 @@ class Historique:
             dict ou None: La dernière opération, ou None si l'historique est vide
         """
         if self.operations:
-            return self. operations[-1]
+            return self.operations[-1]
         return None
     
     def compter(self) -> int:

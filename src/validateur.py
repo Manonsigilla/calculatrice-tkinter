@@ -100,7 +100,7 @@ class Validateur:
                 
                 # Vérifier parenthèses vides "()"
                 # On enlève les espaces entre les parenthèses pour vérifier
-                contenu = expression[position_ouvrante + 1:i]. strip()
+                contenu = expression[position_ouvrante + 1:i].strip()
                 if not contenu:
                     raise ParenthesesError(
                         "Parenthèses vides '()' à la position {}".format(position_ouvrante)
@@ -196,7 +196,7 @@ class Validateur:
         
         # Séparer par opérateurs et parenthèses pour isoler les nombres
         # On garde les séparateurs pour ne pas perdre d'information
-        tokens = re. split(r'([+\-*/()])', expr_clean)
+        tokens = re.split(r'([+\-*/()])', expr_clean)
         
         for token in tokens: 
             # Ignorer les tokens vides, opérateurs et parenthèses
