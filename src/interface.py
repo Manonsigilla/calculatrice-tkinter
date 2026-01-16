@@ -1,6 +1,15 @@
 """
-Module de l'interface graphique de la calculatrice.
-Utilise CustomTkinter pour un design moderne. 
+================================================================================
+Module de l'interface graphique de la calculatrice - VERSION 2.0
+================================================================================
+Utilise CustomTkinter pour un design moderne.  
+
+NOUVEAUTÉS V2.0 :
+- Boutons fonctions scientifiques (sqrt, abs, sin, cos, tan)
+- Boutons min, max pour comparer deux nombres
+- Bouton % pour le modulo
+- Support des nombres négatifs avec le signe -
+================================================================================
 """
 
 import customtkinter as ctk
@@ -12,20 +21,21 @@ from src.historique import Historique
 from src.exceptions import CalculatriceError
 
 
-#com
-class CalculatriceGUI: 
-    """Interface graphique de la calculatrice"""
+class CalculatriceGUI:  
+    """Interface graphique de la calculatrice scientifique"""
     
     def __init__(self):
         """Initialise l'interface graphique"""
         # Configuration de CustomTkinter
-        ctk.set_appearance_mode("dark")  # "light" ou "dark"
+        ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
-        # Fenêtre principale
+        # =====================================================================
+        # FENÊTRE PRINCIPALE - HAUTEUR AUGMENTÉE POUR VOIR LES BOUTONS HISTORIQUE
+        # =====================================================================
         self.fenetre = ctk.CTk()
-        self.fenetre.title("Calculatrice")
-        self.fenetre.geometry("400x600")
+        self.fenetre.title("Calculatrice Scientifique v2.0")
+        self.fenetre.geometry("450x780")  # Hauteur augmentée (était 700)
         self.fenetre.resizable(False, False)
         
         # Modules
@@ -40,16 +50,19 @@ class CalculatriceGUI:
     
     def creer_interface(self):
         """Crée tous les éléments de l'interface"""
-        # Écran d'affichage
+        
+        # =====================================================================
+        # ÉCRAN D'AFFICHAGE
+        # =====================================================================
         self.ecran = ctk.CTkEntry(
             self.fenetre,
             font=("Arial", 24),
             height=60,
             justify="right"
         )
-        self.ecran.pack(pady=20, padx=20, fill="x")
+        self.ecran.pack(pady=15, padx=20, fill="x")
         
-        # Label pour le résultat
+        # Label pour le résultat (en vert)
         self.label_resultat = ctk.CTkLabel(
             self.fenetre,
             text="",
@@ -58,7 +71,7 @@ class CalculatriceGUI:
         )
         self.label_resultat.pack(pady=5)
         
-        # Label pour les erreurs
+        # Label pour les erreurs (en rouge)
         self.label_erreur = ctk.CTkLabel(
             self.fenetre,
             text="",
@@ -67,9 +80,48 @@ class CalculatriceGUI:
         )
         self.label_erreur.pack(pady=5)
         
-        # Frame pour les boutons
+        # =====================================================================
+        # FRAME POUR LES BOUTONS SCIENTIFIQUES
+        # =====================================================================
+        frame_scientifique = ctk.CTkFrame(self.fenetre)
+        frame_scientifique.pack(pady=10, padx=20)
+        
+        # Première ligne :  sin, cos, tan, sqrt
+        boutons_scientifiques_ligne1 = ['sin', 'cos', 'tan', 'sqrt']
+        for j, texte in enumerate(boutons_scientifiques_ligne1):
+            btn = ctk.CTkButton(
+                frame_scientifique,
+                text=texte,
+                width=95,
+                height=40,
+                font=("Arial", 14),
+                fg_color="#6B5B95",
+                hover_color="#5A4A84",
+                command=lambda t=texte: self.ajouter_fonction(t)
+            )
+            btn.grid(row=0, column=j, padx=3, pady=3)
+        
+        # Deuxième ligne : abs, min, max, (vide ou autre)
+        # MODIFICATION : Retrait du bouton ± qui n'était pas clair
+        boutons_scientifiques_ligne2 = ['abs', 'min', 'max']
+        for j, texte in enumerate(boutons_scientifiques_ligne2):
+            btn = ctk.CTkButton(
+                frame_scientifique,
+                text=texte,
+                width=95,
+                height=40,
+                font=("Arial", 14),
+                fg_color="#6B5B95",
+                hover_color="#5A4A84",
+                command=lambda t=texte: self.ajouter_fonction(t)
+            )
+            btn.grid(row=1, column=j, padx=3, pady=3)
+        
+        # =====================================================================
+        # FRAME POUR LES BOUTONS PRINCIPAUX
+        # =====================================================================
         frame_boutons = ctk.CTkFrame(self.fenetre)
-        frame_boutons.pack(pady=20, padx=20)
+        frame_boutons.pack(pady=10, padx=20)
         
         # Définition des boutons
         boutons = [
@@ -77,14 +129,18 @@ class CalculatriceGUI:
             ['7', '8', '9', '/'],
             ['4', '5', '6', '*'],
             ['1', '2', '3', '-'],
-            ['0', '.', '=', '+']
+            ['0', '.', '=', '+'],
+            ['%', ',', '', '']  # Modulo et virgule (pour min/max)
         ]
         
         # Créer et positionner les boutons
         for i, ligne in enumerate(boutons):
             for j, texte in enumerate(ligne):
+                # Ignorer les cases vides
+                if texte == '':
+                    continue
+                    
                 if texte == '=':
-                    # Bouton égal en vert
                     btn = ctk.CTkButton(
                         frame_boutons,
                         text=texte,
@@ -95,8 +151,7 @@ class CalculatriceGUI:
                         hover_color="darkgreen",
                         command=self.calculer_expression
                     )
-                elif texte == 'C':
-                    # Bouton effacer en rouge
+                elif texte == 'C': 
                     btn = ctk.CTkButton(
                         frame_boutons,
                         text=texte,
@@ -108,7 +163,6 @@ class CalculatriceGUI:
                         command=self.effacer
                     )
                 elif texte == 'CE':
-                    # Bouton effacer dernier en orange
                     btn = ctk.CTkButton(
                         frame_boutons,
                         text=texte,
@@ -119,8 +173,18 @@ class CalculatriceGUI:
                         hover_color="darkorange",
                         command=self.effacer_dernier
                     )
+                elif texte == '%':
+                    btn = ctk.CTkButton(
+                        frame_boutons,
+                        text=texte,
+                        width=70,
+                        height=50,
+                        font=("Arial", 18),
+                        fg_color="#2E86AB",
+                        hover_color="#1E5F7A",
+                        command=lambda t=texte: self.ajouter_caractere(t)
+                    )
                 else:
-                    # Boutons normaux (chiffres et opérateurs)
                     btn = ctk.CTkButton(
                         frame_boutons,
                         text=texte,
@@ -132,27 +196,46 @@ class CalculatriceGUI:
                 
                 btn.grid(row=i, column=j, padx=5, pady=5)
         
-        # Boutons d'historique
+        # =====================================================================
+        # BOUTONS D'HISTORIQUE - Maintenant visibles ! 
+        # =====================================================================
         frame_historique = ctk.CTkFrame(self.fenetre)
-        frame_historique.pack(pady=10)
+        frame_historique.pack(pady=15)
         
         btn_voir_hist = ctk.CTkButton(
             frame_historique,
-            text="Voir historique",
+            text="📊 Voir historique",
+            width=150,
             command=self.afficher_historique
         )
-        btn_voir_hist.pack(side="left", padx=5)
+        btn_voir_hist.pack(side="left", padx=10)
         
         btn_effacer_hist = ctk.CTkButton(
             frame_historique,
-            text="Effacer historique",
+            text="🗑️ Effacer historique",
+            width=150,
+            fg_color="#8B0000",
+            hover_color="#5C0000",
             command=self.effacer_historique
         )
-        btn_effacer_hist.pack(side="left", padx=5)
+        btn_effacer_hist.pack(side="left", padx=10)
+    
+    def ajouter_fonction(self, fonction):
+        """
+        Ajoute une fonction mathématique à l'expression. 
+        Ajoute "fonction(" à l'expression courante.
+        
+        Args:
+            fonction: Le nom de la fonction (sin, cos, sqrt, min, max, etc.)
+        """
+        self.expression_courante += f"{fonction}("
+        self.ecran.delete(0, "end")
+        self.ecran.insert(0, self.expression_courante)
+        self.label_erreur.configure(text="")
     
     def ajouter_caractere(self, caractere):
         """
-        Ajoute un caractère à l'expression courante. 
+        Ajoute un caractère à l'expression courante.
         
         Args:
             caractere: Le caractère à ajouter
@@ -160,11 +243,11 @@ class CalculatriceGUI:
         self.expression_courante += str(caractere)
         self.ecran.delete(0, "end")
         self.ecran.insert(0, self.expression_courante)
-        self.label_erreur.configure(text="")  # Effacer les erreurs
+        self.label_erreur.configure(text="")
     
     def calculer_expression(self):
         """
-        Calcule l'expression saisie.
+        Calcule l'expression saisie. 
         Appelé quand l'utilisateur clique sur =
         """
         expression = self.ecran.get()
@@ -182,12 +265,20 @@ class CalculatriceGUI:
         # Calcul
         try:
             resultat = calculer(expression)
-            self.label_resultat.configure(text=f"= {resultat}")
-            self.historique.ajouter(expression, resultat)
-        except CalculatriceError as e: 
+            
+            # Formater le résultat
+            if resultat == int(resultat):
+                resultat_affiche = int(resultat)
+            else:
+                resultat_affiche = round(resultat, 10)
+            
+            self.label_resultat.configure(text=f"= {resultat_affiche}")
+            self.historique.ajouter(expression, resultat_affiche)
+            
+        except CalculatriceError as e:
             self.label_erreur.configure(text=str(e))
-        except Exception as e: 
-            self.label_erreur.configure(text=f"Erreur inattendue :  {str(e)}")
+        except Exception as e:
+            self.label_erreur.configure(text=f"Erreur inattendue : {str(e)}")
     
     def effacer(self):
         """Efface tout l'écran (bouton C)"""
@@ -204,12 +295,10 @@ class CalculatriceGUI:
     
     def afficher_historique(self):
         """Affiche la fenêtre d'historique"""
-        # Créer une fenêtre popup
         popup = ctk.CTkToplevel(self.fenetre)
         popup.title("Historique des calculs")
         popup.geometry("500x400")
         
-        # Titre
         titre = ctk.CTkLabel(
             popup,
             text="📊 Historique des calculs",
@@ -217,19 +306,12 @@ class CalculatriceGUI:
         )
         titre.pack(pady=10)
         
-        # Frame scrollable pour l'historique
-        frame_scroll = ctk.CTkScrollableFrame(
-            popup,
-            width=450,
-            height=280
-        )
+        frame_scroll = ctk.CTkScrollableFrame(popup, width=450, height=280)
         frame_scroll.pack(pady=10, padx=20, fill="both", expand=True)
         
-        # Récupérer l'historique
         operations = self.historique.obtenir_historique()
         
         if not operations:
-            # Aucun calcul dans l'historique
             label_vide = ctk.CTkLabel(
                 frame_scroll,
                 text="Aucun calcul dans l'historique",
@@ -238,13 +320,10 @@ class CalculatriceGUI:
             )
             label_vide.pack(pady=20)
         else:
-            # Afficher chaque opération
             for i, (expression, resultat, timestamp) in enumerate(operations, 1):
-                # Frame pour chaque calcul
                 frame_calcul = ctk.CTkFrame(frame_scroll)
                 frame_calcul.pack(pady=5, padx=10, fill="x")
                 
-                # Numéro et timestamp
                 label_info = ctk.CTkLabel(
                     frame_calcul,
                     text=f"#{i} - {timestamp}",
@@ -253,7 +332,6 @@ class CalculatriceGUI:
                 )
                 label_info.pack(anchor="w", padx=10, pady=2)
                 
-                # Expression et résultat
                 label_calcul = ctk.CTkLabel(
                     frame_calcul,
                     text=f"{expression} = {resultat}",
@@ -261,13 +339,7 @@ class CalculatriceGUI:
                 )
                 label_calcul.pack(anchor="w", padx=10, pady=5)
         
-        # Bouton fermer
-        btn_fermer = ctk.CTkButton(
-            popup,
-            text="Fermer",
-            command=popup.destroy,
-            width=120
-        )
+        btn_fermer = ctk.CTkButton(popup, text="Fermer", command=popup.destroy, width=120)
         btn_fermer.pack(pady=10)
     
     def effacer_historique(self):
@@ -278,7 +350,7 @@ class CalculatriceGUI:
         )
         if reponse:
             self.historique.effacer()
-            messagebox.showinfo("Succès", "Historique effacé")
+            messagebox.showinfo("Succès", "Historique effacé !")
     
     def run(self):
         """Lance l'application"""
