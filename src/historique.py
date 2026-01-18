@@ -311,7 +311,7 @@ class Historique:
                     f.write("Aucun calcul dans l'historique.\n")
                 else:
                     for i, op in enumerate(self.operations, 1):
-                        f.write(f"#{i}\n")
+                        f. write(f"#{i}\n")
                         f.write(f"  Expression : {op['expression']}\n")
                         f.write(f"  Résultat   : {op['resultat']}\n")
                         f.write(f"  Date       : {op['timestamp']}\n")

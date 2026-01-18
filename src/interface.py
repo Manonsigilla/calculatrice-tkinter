@@ -215,7 +215,7 @@ class CalculatriceGUI:
         # ÉCRAN D'AFFICHAGE
         # =====================================================================
         self.ecran = ctk.CTkEntry(
-            self.fenetre,
+            self.frame_principal,
             font=("Arial", 24),
             height=60,
             justify="right"
@@ -224,7 +224,7 @@ class CalculatriceGUI:
         
         # Label pour le résultat (en vert)
         self.label_resultat = ctk.CTkLabel(
-            self.fenetre,
+            self.frame_principal,
             text="",
             font=("Arial", 18),
             text_color="#00C853"
@@ -233,7 +233,7 @@ class CalculatriceGUI:
         
         # Label pour les erreurs (en rouge)
         self.label_erreur = ctk.CTkLabel(
-            self.fenetre,
+            self.frame_principal,
             text="",
             font=("Arial", 12),
             text_color="#FF5252"
@@ -243,7 +243,7 @@ class CalculatriceGUI:
         # =====================================================================
         # FRAME CONSTANTES (PI, E, ANS)
         # =====================================================================
-        frame_constantes = ctk.CTkFrame(self.fenetre)
+        frame_constantes = ctk.CTkFrame(self.frame_principal)
         frame_constantes.pack(pady=5, padx=20)
         
         boutons_constantes = [
@@ -283,7 +283,7 @@ class CalculatriceGUI:
         # =====================================================================
         # FRAME FONCTIONS AVANCÉES (ln, log, exp, etc.)
         # =====================================================================
-        frame_fonctions_avancees = ctk.CTkFrame(self.fenetre)
+        frame_fonctions_avancees = ctk.CTkFrame(self.frame_principal)
         frame_fonctions_avancees.pack(pady=5, padx=20)
         
         boutons_avances_ligne1 = ['ln', 'log', 'exp', '^', 'inv']
@@ -309,7 +309,6 @@ class CalculatriceGUI:
                     font=("Arial", 14),
                     fg_color="#06A77D",
                     hover_color="#048A67",
-                    text_color="white",
                     command=lambda t=texte: self.ajouter_fonction(t)
                 )
             btn.grid(row=0, column=boutons_avances_ligne1.index(texte), padx=3, pady=3)
@@ -317,7 +316,7 @@ class CalculatriceGUI:
         # =====================================================================
         # FRAME POUR LES BOUTONS SCIENTIFIQUES
         # =====================================================================
-        frame_scientifique = ctk.CTkFrame(self.fenetre)
+        frame_scientifique = ctk.CTkFrame(self.frame_principal)
         frame_scientifique.pack(pady=10, padx=20)
         
         # Première ligne :  sin, cos, tan, sqrt
@@ -353,7 +352,7 @@ class CalculatriceGUI:
         # =====================================================================
         # FRAME POUR LES BOUTONS PRINCIPAUX
         # =====================================================================
-        frame_boutons = ctk.CTkFrame(self.fenetre)
+        frame_boutons = ctk.CTkFrame(self.frame_principal)
         frame_boutons.pack(pady=10, padx=20)
         
         # Définition des boutons
@@ -432,7 +431,7 @@ class CalculatriceGUI:
         # =====================================================================
         # BOUTONS D'HISTORIQUE
         # =====================================================================
-        frame_historique = ctk.CTkFrame(self.fenetre)
+        frame_historique = ctk.CTkFrame(self.frame_principal)
         frame_historique.pack(pady=15)
         
         btn_voir_hist = ctk.CTkButton(
