@@ -11,6 +11,10 @@ Version 2.0 - Ajout des exceptions pour les nouvelles fonctionnalités :
     - ArgumentFonctionError : pour les arguments invalides des fonctions
     - TangenteDomainError : pour tan(90°) et valeurs similaires
     - ModuloParZeroError : pour les divisions modulo par zéro
+    
+VERSION 3.0 - NOUVEAUTÉS :
+    - LogarithmeError : pour ln/log de valeurs invalides (≤ 0)
+    - ArgumentFonctionError amélioré pour toutes les fonctions
 ================================================================================
 """
 
@@ -19,8 +23,7 @@ class CalculatriceError(Exception):
     """
     Classe de base pour toutes les erreurs de la calculatrice.
     
-    Toutes les exceptions personnalisées héritent de cette classe,
-    ce qui permet de les attraper toutes avec un seul except.
+    Toutes les exceptions personnalisées héritent de cette classe, ce qui permet de les attraper toutes avec un seul except.
     
     Exemple: 
         try:
@@ -134,6 +137,14 @@ class RacineNegativeError(CalculatriceError):
     def __init__(self, nombre):
         super().__init__(f"Erreur :  Racine carrée d'un nombre négatif ({nombre}) impossible")
 
+class LogarithmeError(CalculatriceError):
+    """
+    Levée quand on tente de calculer le logarithme d'un nombre ≤ 0.
+    
+    Le logarithme n'est défini que pour les nombres strictement positifs.
+    """
+    def __init__(self, nombre):
+        super().__init__(f"Erreur : Logarithme de {nombre} impossible (doit être > 0)")
 
 class ArgumentFonctionError(CalculatriceError):
     """

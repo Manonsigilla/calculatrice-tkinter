@@ -1,7 +1,7 @@
 # src/validateur.py
 """
 ================================================================================
-Module de validation des expressions mathématiques - VERSION 2.0
+Module de validation des expressions mathématiques - VERSION 3.0
 ================================================================================
 
 Ce module vérifie qu'une expression est valide AVANT de la calculer. 
@@ -21,6 +21,13 @@ VERSION 2.0 - NOUVEAUTÉS :
     - Support de l'opérateur modulo (%)
     - Support des fonctions :  sqrt, abs, sin, cos, tan, min, max
     - Validation des arguments des fonctions
+    
+VERSION 3.0 - NOUVEAUTÉS :
+--------------------------
+    - Support de toutes les nouvelles fonctions (ln, log, exp, etc.)
+    - Support de l'opérateur puissance ^
+    - Support des constantes PI, E, ANS
+    - Validation des noms de fonctions trigonométriques en degrés
 
 ================================================================================
 """
@@ -71,13 +78,14 @@ class Validateur:
         # =====================================================================
         # Chiffres, opérateurs, parenthèses, point, virgule, espace
         # + lettres minuscules pour les noms de fonctions (sqrt, sin, etc.)
-        self.caracteres_autorises = "0123456789+-*/%()., abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        # Accent circonflexe pour la puissance ^
+        self.caracteres_autorises = "0123456789+-*/%^()., abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
         
         # =====================================================================
         # OPÉRATEURS RECONNUS
         # =====================================================================
         # Version 2.0 : ajout du modulo %
-        self.operateurs = "+-*/%"
+        # Version 3.0 : ajout de la puissance ^
         
         # =====================================================================
         # CHIFFRES
@@ -87,8 +95,23 @@ class Validateur:
         # =====================================================================
         # FONCTIONS MATHÉMATIQUES RECONNUES
         # =====================================================================
-        # Version 2.0 : nouvelles fonctions
-        self.fonctions = {'sqrt', 'abs', 'sin', 'cos', 'tan', 'min', 'max'}
+        # Version 3.0 : nouvelles fonctions
+        self.fonctions = {
+            # Fonctions de base
+            'sqrt', 'abs',
+            # Trigonométrie radians
+            'sin', 'cos', 'tan',
+            # Trigonométrie degrés
+            'sind', 'cosd', 'tand',
+            # Logarithmes
+            'ln', 'log',
+            # Exponentielle
+            'exp',
+            # Autres
+            'inv', 'sqr',
+            # Min/Max
+            'min', 'max'
+        }
     
     def valider_expression(self, expression: str) -> Tuple[bool, str]: 
         """
@@ -117,6 +140,10 @@ class Validateur:
             (False, "Erreur :  Aucune expression saisie")
             >>> validateur.valider_expression("2 + a")  # 'a' seul n'est pas une fonction
             (False, "Erreur : Caractère 'a' non reconnu à la position 4")
+            >>> validateur.valider_expression("ln(E)")
+            (True, "")
+            >>> validateur.valider_expression("2^10")
+            (True, "")
         """
         try:
             # =================================================================
@@ -278,7 +305,7 @@ class Validateur:
                 # Seuls + et - peuvent être unaires (après un autre opérateur)
                 if char_suivant in "+-":
                     # Autorisé après un opérateur ou '('
-                    if i == 0 or char_actuel in "+-*/%(":
+                    if i == 0 or char_actuel in "+-*/%^(":
                         i += 1
                         continue
                 
@@ -310,14 +337,14 @@ class Validateur:
             i += 1
         
         # =====================================================================
-        # Vérifier qu'il n'y a pas de *, / ou % au début (+ et - sont OK)
+        # Vérifier qu'il n'y a pas de *, /, % ou ^ au début (+ et - sont OK)
         # =====================================================================
         # On ignore les lettres au début (fonctions comme sqrt, sin, etc.)
         premier_non_lettre = 0
         while premier_non_lettre < len(expr_clean) and expr_clean[premier_non_lettre].isalpha():
             premier_non_lettre += 1
         
-        if premier_non_lettre < len(expr_clean) and expr_clean[premier_non_lettre] in "*/%":
+        if premier_non_lettre < len(expr_clean) and expr_clean[premier_non_lettre] in "*/%^":
             raise OperateurError(
                 f"Opérateur '{expr_clean[premier_non_lettre]}' invalide en début d'expression"
             )
@@ -345,11 +372,15 @@ class Validateur:
         
         # Séparer par opérateurs, parenthèses et virgules pour isoler les nombres
         # Le regex capture les séparateurs pour ne pas les perdre
-        tokens = re.split(r'([+\-*/%(),])', expr_clean)
+        tokens = re.split(r'([+\-*/%^(),])', expr_clean)
         
         for token in tokens:
             # Ignorer les tokens vides, opérateurs, parenthèses, virgules
-            if not token or token in '+-*/%(),':
+            if not token or token in '+-*/%^(),':
+                continue
+            
+            # Ignorer les fonctions et constantes
+            if token. lower() in self.fonctions or token.lower() in self.constantes:
                 continue
             
             # Ignorer les noms de fonctions (mots alphabétiques)
