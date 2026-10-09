@@ -39,7 +39,8 @@ from src.exceptions import (
     ParenthesesError,
     OperateurError,
     ExpressionVideError,
-    NombreInvalideError
+    NombreInvalideError,
+    ArgumentFonctionError
 )
 
 
@@ -161,31 +162,44 @@ class Validateur:
             # =================================================================
             # NORMALISATION
             # =================================================================
-            # Remplacer les virgules par des points pour les décimaux
-            expression_norm = expression.replace(',', '.')
-            
+            # La virgule est CONSERVÉE : c'est le séparateur d'arguments de
+            # min(a,b) et max(a,b). L'ancien code la remplaçait par un point,
+            # ce qui transformait « min(3,7) » en « min(3.7) » lors de la
+            # validation (argument unique au lieu de deux).
+            expression_norm = expression
+
             # =================================================================
             # TEST 2 : Caractères invalides
             # =================================================================
             self._valider_caracteres(expression_norm)
-            
+
             # =================================================================
-            # TEST 3 : Parenthèses équilibrées
+            # TEST 3 : Mots reconnus (fonctions et constantes uniquement)
+            # =================================================================
+            self._valider_mots(expression_norm)
+
+            # =================================================================
+            # TEST 4 : Parenthèses équilibrées
             # =================================================================
             self._valider_parentheses(expression_norm)
-            
+
             # =================================================================
-            # TEST 4 :  Opérateurs bien placés
+            # TEST 5 : Virgules (séparateurs d'arguments) bien placées
+            # =================================================================
+            self._valider_virgules(expression_norm)
+
+            # =================================================================
+            # TEST 6 :  Opérateurs bien placés
             # =================================================================
             self._valider_operateurs(expression_norm)
-            
+
             # =================================================================
-            # TEST 5 : Nombres bien formés
+            # TEST 7 : Nombres bien formés
             # =================================================================
             self._valider_nombres(expression_norm)
-            
+
             # =================================================================
-            # TEST 6 : Fonctions avec syntaxe correcte
+            # TEST 8 : Fonctions avec syntaxe correcte
             # =================================================================
             self._valider_fonctions(expression_norm)
             
@@ -212,7 +226,88 @@ class Validateur:
         for i, char in enumerate(expression):
             if char not in self.caracteres_autorises:
                 raise CaractereInvalideError(char, i)
-    
+
+    def _valider_mots(self, expression: str) -> None:
+        """
+        Vérifie que chaque groupe de lettres est une fonction ou une constante
+        connue.
+
+        Sans ce test, une lettre seule comme « a » ou « x » passait la
+        validation (les lettres font partie des caractères autorisés), puis le
+        calcul échouait avec un message obscur (« opérandes manquants »).
+
+        Args:
+            expression: L'expression à valider
+
+        Raises:
+            CaractereInvalideError: Si un mot n'est ni une fonction ni une
+                constante reconnue
+        """
+        for correspondance in re.finditer(r'[A-Za-z]+', expression):
+            mot = correspondance.group()
+            if mot.lower() in self.fonctions or mot.lower() in self.constantes:
+                continue
+            raise CaractereInvalideError(mot, correspondance.start())
+
+    def _valider_virgules(self, expression: str) -> None:
+        """
+        Vérifie que les virgules servent bien de séparateur d'arguments.
+
+        Une virgule n'est valide qu'à l'intérieur d'une fonction, entre deux
+        arguments non vides, et le nombre d'arguments doit correspondre à la
+        fonction :
+            - min(a,b) / max(a,b) : exactement 2 arguments (1 virgule)
+            - toutes les autres fonctions : 1 seul argument (0 virgule)
+
+        Args:
+            expression: L'expression à valider
+
+        Raises:
+            OperateurError: Si une virgule est mal placée
+            ArgumentFonctionError: Si le nombre d'arguments est incorrect
+        """
+        # Les parenthèses doivent déjà être équilibrées (test précédent).
+        expr = expression.replace(" ", "")
+        pile = []  # liste de [nom_fonction, nombre_de_virgules]
+
+        for i, char in enumerate(expr):
+            if char == '(':
+                # Retrouver le nom de la fonction juste avant la parenthèse
+                j = i - 1
+                nom = ""
+                while j >= 0 and expr[j].isalpha():
+                    nom = expr[j] + nom
+                    j -= 1
+                pile.append([nom.lower(), 0])
+
+            elif char == ',':
+                if not pile:
+                    raise OperateurError(
+                        f"Virgule en dehors d'une fonction à la position {i}"
+                    )
+                pile[-1][1] += 1
+
+                if i == 0 or expr[i - 1] in "(,":
+                    raise ArgumentFonctionError(
+                        pile[-1][0], "argument manquant avant la virgule"
+                    )
+                if i + 1 >= len(expr) or expr[i + 1] in ",)":
+                    raise ArgumentFonctionError(
+                        pile[-1][0], "argument manquant après la virgule"
+                    )
+
+            elif char == ')' and pile:
+                nom, nb_virgules = pile.pop()
+                attendu = 1 if nom in ('min', 'max') else 0
+                if nb_virgules != attendu:
+                    if attendu == 0:
+                        raise ArgumentFonctionError(
+                            nom, "ne prend qu'un seul argument"
+                        )
+                    raise ArgumentFonctionError(
+                        nom, "nécessite 2 arguments séparés par une virgule"
+                    )
+
     def _valider_parentheses(self, expression: str) -> None:
         """
         Vérifie que les parenthèses sont équilibrées.
@@ -345,15 +440,35 @@ class Validateur:
         # =====================================================================
         # Vérifier qu'il n'y a pas de *, /, % ou ^ au début (+ et - sont OK)
         # =====================================================================
-        # On ignore les lettres au début (fonctions comme sqrt, sin, etc.)
-        premier_non_lettre = 0
-        while premier_non_lettre < len(expr_clean) and expr_clean[premier_non_lettre].isalpha():
-            premier_non_lettre += 1
-        
-        if premier_non_lettre < len(expr_clean) and expr_clean[premier_non_lettre] in "*/%^":
+        # On regarde le tout premier caractère : une expression ne peut pas
+        # commencer par *, /, % ou ^. L'ancien code sautait les lettres
+        # initiales, ce qui rejetait à tort les constantes (« e*2 », « PI^2 »,
+        # « ans*2 ») en croyant qu'il s'agissait de noms de fonctions.
+        if expr_clean[0] in "*/%^":
             raise OperateurError(
-                f"Opérateur '{expr_clean[premier_non_lettre]}' invalide en début d'expression"
+                f"Opérateur '{expr_clean[0]}' invalide en début d'expression"
             )
+
+        # =====================================================================
+        # Vérifier l'absence de multiplication implicite
+        # =====================================================================
+        # « 2PI », « 2(3+4) », « (2)3 » ne sont pas gérés par le calculateur.
+        # On les rejette ici avec un message clair plutôt que de laisser le
+        # calcul échouer avec « expression invalide ».
+        # NB : on n'inclut pas les lettres suivies de '(' car ce cas légitime
+        #      correspond aux appels de fonctions (sqrt(…), sin(…)).
+        if re.search(r'[\d).](?=[(A-Za-z])', expr_clean):
+            raise OperateurError(
+                "Multiplication implicite non supportée (utilisez '*')"
+            )
+
+        # Constante (et non fonction) suivie d'une parenthèse : « PI(2) »
+        for correspondance in re.finditer(r'([A-Za-z]+)\(', expr_clean):
+            if correspondance.group(1).lower() not in self.fonctions:
+                raise OperateurError(
+                    f"Multiplication implicite non supportée après "
+                    f"'{correspondance.group(1)}' (utilisez '*')"
+                )
     
     def _valider_nombres(self, expression: str) -> None:
         """
@@ -442,10 +557,17 @@ class Validateur:
                 # (ex: "cosinus" contient "cos" mais n'est pas notre fonction)
                 avant_ok = (pos == 0 or not expr_clean[pos - 1].isalpha())
                 apres_pos = pos + len(fonction)
-                
-                if avant_ok and apres_pos < len(expr_clean):
+
+                if avant_ok:
+                    # Une fonction en fin d'expression (« sqrt ») est invalide :
+                    # elle doit être suivie d'une parenthèse ouvrante.
+                    if apres_pos >= len(expr_clean):
+                        raise OperateurError(
+                            f"La fonction {fonction}() doit être suivie de parenthèses"
+                        )
+
                     char_apres = expr_clean[apres_pos]
-                    
+
                     # Le caractère après doit être '('
                     if char_apres != '(':
                         if char_apres.isalpha():
@@ -456,5 +578,5 @@ class Validateur:
                         raise OperateurError(
                             f"La fonction {fonction}() doit être suivie de parenthèses"
                         )
-                
+
                 pos += 1

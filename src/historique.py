@@ -18,6 +18,24 @@ from pathlib import Path
 from typing import List, Tuple
 
 
+def _afficher(message: str) -> None:
+    """
+    Affiche un message sur la sortie standard de façon sûre.
+
+    Sur Windows, la console utilise souvent l'encodage cp1252 qui ne sait pas
+    représenter les emojis (✅, ❌, ⚠️, 📦) : un simple print() levait alors une
+    UnicodeEncodeError. Dans exporter_csv/exporter_texte, cette exception
+    survenait APRÈS l'écriture du fichier et faisait échouer l'export (le
+    fichier était écrit mais la fonction ne renvoyait jamais True).
+    """
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Repli : remplacer les caractères non représentables
+        encodage = getattr(__import__('sys').stdout, 'encoding', None) or 'ascii'
+        print(message.encode(encodage, 'replace').decode(encodage))
+
+
 class Historique:
     """
     Gère l'historique des calculs effectués
@@ -111,7 +129,7 @@ class Historique:
                 os.rename(fichier_temp, self.fichier)
                 
         except Exception as e: 
-            print(f"Erreur lors de la sauvegarde de l'historique : {e}")
+            _afficher(f"Erreur lors de la sauvegarde de l'historique : {e}")
             # Nettoyer le fichier temporaire en cas d'erreur
             if os.path.exists(fichier_temp):
                 try:
@@ -129,18 +147,35 @@ class Historique:
             try:
                 with open(self.fichier, 'r', encoding='utf-8') as f:
                     self.operations = json.load(f)
-                    
+
                 # Validation :  s'assurer que c'est une liste
                 if not isinstance(self.operations, list):
                     raise ValueError("Le fichier historique n'est pas une liste")
-                    
+
+                # Ne conserver que les opérations bien formées. Un fichier
+                # (même valide en JSON) pouvait contenir des entrées
+                # inattendues ; l'affichage et la recherche levaient alors un
+                # TypeError (« string indices must be integers ») et les
+                # boutons « Voir » / « Rechercher » plantaient silencieusement.
+                champs_requis = {'expression', 'resultat', 'timestamp'}
+                operations_valides = [
+                    op for op in self.operations
+                    if isinstance(op, dict) and champs_requis <= op.keys()
+                ]
+                if len(operations_valides) != len(self.operations):
+                    _afficher(
+                        f"⚠️ {len(self.operations) - len(operations_valides)} "
+                        f"entrée(s) invalide(s) ignorée(s) dans l'historique"
+                    )
+                self.operations = operations_valides
+
             except json.JSONDecodeError:
-                print("⚠️ Fichier historique corrompu, création d'un backup")
+                _afficher("⚠️ Fichier historique corrompu, création d'un backup")
                 self._creer_backup()
                 self.operations = []
                 
             except Exception as e:
-                print(f"⚠️ Erreur lors du chargement de l'historique : {e}")
+                _afficher(f"⚠️ Erreur lors du chargement de l'historique : {e}")
                 self._creer_backup()
                 self.operations = []
         else:
@@ -152,9 +187,9 @@ class Historique:
             if Path(self.fichier).exists():
                 backup_name = f"{self.fichier}.backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 os.rename(self.fichier, backup_name)
-                print(f"📦 Backup créé : {backup_name}")
+                _afficher(f"📦 Backup créé : {backup_name}")
         except Exception as e:
-            print(f"Impossible de créer un backup : {e}")
+            _afficher(f"Impossible de créer un backup : {e}")
     
     def obtenir_historique(self):
         """
@@ -242,13 +277,16 @@ class Historique:
         
         for op in self.operations:
             timestamp = op['timestamp']
-            
-            # Vérifier si dans la plage
-            if date_debut and timestamp < date_debut: 
+
+            # Comparer uniquement la portion de date. Un timestamp ISO complet
+            # ("2024-12-31T10:30:00") est toujours supérieur à la date seule
+            # ("2024-12-31") : sans cette troncature, les calculs du jour même
+            # étaient exclus de la fin de plage.
+            if date_debut and timestamp[:len(date_debut)] < date_debut:
                 continue
-            if date_fin and timestamp > date_fin: 
+            if date_fin and timestamp[:len(date_fin)] > date_fin:
                 continue
-            
+
             resultats.append(op)
         
         return resultats
@@ -284,11 +322,11 @@ class Historique:
                     
                     f.write(f'"{expression}",{resultat},"{timestamp}"\n')
             
-            print(f"✅ Historique exporté vers {nom_fichier}")
+            _afficher(f"✅ Historique exporté vers {nom_fichier}")
             return True
             
         except Exception as e:
-            print(f"❌ Erreur lors de l'export CSV : {e}")
+            _afficher(f"❌ Erreur lors de l'export CSV : {e}")
             return False
     
     def exporter_texte(self, nom_fichier: str = "historique_export.txt") -> bool:
@@ -320,9 +358,9 @@ class Historique:
                 f.write("=" * 60 + "\n")
                 f.write(f"Total : {len(self.operations)} calcul(s)\n")
             
-            print(f"✅ Historique exporté vers {nom_fichier}")
+            _afficher(f"✅ Historique exporté vers {nom_fichier}")
             return True
             
         except Exception as e:
-            print(f"❌ Erreur lors de l'export texte : {e}")
+            _afficher(f"❌ Erreur lors de l'export texte : {e}")
             return False

@@ -69,39 +69,43 @@ def decimal_vers_fraction(decimal: float, precision: int = 1000000) -> tuple:
     # Gérer le signe
     signe = 1 if decimal >= 0 else -1
     decimal = abs(decimal)
-    
+
     # Partie entière
     partie_entiere = int(decimal)
     partie_decimale = decimal - partie_entiere
-    
+
     # Si c'est un entier, retourner directement
-    if partie_decimale < 1e-9:
+    if partie_decimale < 1e-12:
         return (signe * partie_entiere, 1)
-    
-    # Algorithme des fractions continues (simplifié)
-    # On cherche num/den tel que |decimal - num/den| soit minimal
-    meilleur_num = 0
-    meilleur_den = 1
-    meilleure_diff = decimal
-    
+
+    # Tolérance relative : on s'arrête à la première fraction « simple » qui
+    # approche suffisamment la valeur.
+    #
+    # L'ancienne version gardait l'approximation la PLUS précise (tolérance
+    # absolue 1e-10) : elle balayait alors jusqu'à un million de dénominateurs
+    # (~150 ms par appel → gel en mode FRAC) et renvoyait des fractions
+    # absurdes. Par exemple 0.333333 donnait 333234/999703 au lieu de 1/3,
+    # alors que la docstring de cette fonction annonce (1, 3).
+    tolerance = 1e-6 * max(1.0, decimal)
+
+    meilleur_num, meilleur_den = 0, 1
+
     for den in range(1, precision + 1):
         num = round(decimal * den)
-        diff = abs(decimal - num / den)
-        
-        if diff < meilleure_diff:
-            meilleure_diff = diff
-            meilleur_num = num
-            meilleur_den = den
-        
-        # Si la différence est très petite, on a trouvé
-        if diff < 1e-10:
+        if abs(decimal - num / den) <= tolerance:
+            meilleur_num, meilleur_den = num, den
             break
-    
+    else:
+        # Aucun dénominateur satisfaisant dans la limite : on renvoie la
+        # partie entière (le cas ne se produit pas en pratique, le théorème
+        # de Dirichlet garantissant une approximation à 1e-6 pour den ≈ 1000).
+        return (signe * partie_entiere, 1)
+
     # Simplifier la fraction avec le PGCD
-    diviseur = pgcd(meilleur_num, meilleur_den)
+    diviseur = pgcd(meilleur_num, meilleur_den) or 1
     numerateur = meilleur_num // diviseur
     denominateur = meilleur_den // diviseur
-    
+
     return (signe * numerateur, denominateur)
 
 
