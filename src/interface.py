@@ -37,9 +37,8 @@ AMÉLIORATIONS V3.1 :
 import customtkinter as ctk
 from tkinter import messagebox
 from datetime import datetime
-import sys
 
-from src.calculateur import calculer, obtenir_dernier_resultat
+from src.calculateur import calculer
 from src.validateur import Validateur
 from src.historique import Historique
 from src.exceptions import CalculatriceError
@@ -81,6 +80,9 @@ class CalculatriceGUI:
         self.expression_courante = ""
         self.mode_degres = False  # False = radians, True = degrés
         self.afficher_fractions = False  # False = décimal, True = fractions
+        # Dernier résultat affiché (None tant qu'aucun calcul n'a été fait) :
+        # permet au bouton « Copier » de ne pas copier un 0.0 fantôme.
+        self.dernier_resultat = None
         
         # Raccourci clavier
         self._configurer_raccourcis_clavier()
@@ -518,10 +520,15 @@ class CalculatriceGUI:
         # GESTION INTELLIGENTE DU POURCENTAGE
         # =====================================================================
         # Si l'expression se termine par "%", c'est un calcul de pourcentage
-        # Exemples : 
+        # Exemples :
         #   "100 + 20%" → 100 + (100 * 20 / 100) = 120 (TVA)
         #   "200 - 15%" → 200 - (200 * 15 / 100) = 170 (réduction)
-        if '%' in expression and ('+' in expression or '-' in expression):
+        #
+        # L'ancienne condition (« % » présent ET un + ou - quelque part)
+        # transformait à tort les modulos comme « 3+5%2 » en pourcentage.
+        # Le calcul spécial ne doit s'appliquer que si l'expression SE TERMINE
+        # par '%'.
+        if expression.strip().endswith('%'):
             expression = self._traiter_pourcentage(expression)
         
         # =====================================================================
@@ -546,16 +553,28 @@ class CalculatriceGUI:
                 self.label_resultat.configure(text=f"= {resultat_affiche}")
             else:
                 # Mode décimal
-                if resultat == int(resultat):
+                if abs(resultat) < 1e16 and resultat == int(resultat):
+                    # Entier exact (les flottants sont exacts jusqu'à 2^53 ≈ 9e15)
                     resultat_affiche = int(resultat)
-                else: 
-                    resultat_affiche = round(resultat, 10)
+                else:
+                    # Sinon arrondi, mais sans jamais afficher « 0 » pour une
+                    # valeur non nulle (ex: 1e-20) ni un entier de 140 chiffres.
+                    arrondi = round(resultat, 10)
+                    if arrondi == 0 and resultat != 0:
+                        resultat_affiche = f"{resultat:.6e}"
+                    else:
+                        resultat_affiche = arrondi
                 self.label_resultat.configure(text=f"= {resultat_affiche}")
             
             # Ajouter à l'historique
             self.historique.ajouter(expression, resultat)
-            
-        except CalculatriceError as e: 
+
+            # Mémoriser le résultat pour le bouton « Copier »
+            self.dernier_resultat = resultat
+            # Réinitialiser la couleur du label (elle change après un copier)
+            self.label_resultat.configure(text_color="#00C853")
+
+        except CalculatriceError as e:
             self.label_erreur.configure(text=str(e))
         except Exception as e:
             self.label_erreur.configure(text=f"Erreur inattendue :  {str(e)}")
@@ -585,11 +604,12 @@ class CalculatriceGUI:
         if len(parties) == 2:
             base = parties[0].strip()
             pourcentage_str = parties[1].strip().replace('%', '')
-            
-            # Construire la nouvelle expression
-            nouvelle_expr = f"{base} {operateur} ({base} * {pourcentage_str} / 100)"
-            return nouvelle_expr
-        
+
+            # Les deux parties doivent être présentes et non vides
+            if base and pourcentage_str:
+                # Construire la nouvelle expression
+                return f"{base} {operateur} ({base} * {pourcentage_str} / 100)"
+
         return expression
     
     def effacer(self):
@@ -645,8 +665,8 @@ class CalculatriceGUI:
         
         Utilise le module tkinter pour accéder au clipboard.
         """
-        dernier = obtenir_dernier_resultat()
-        
+        dernier = self.dernier_resultat
+
         if dernier is not None:
             # Copier dans le presse-papier
             self.fenetre.clipboard_clear()
@@ -886,10 +906,16 @@ class CalculatriceGUI:
         try:
             from src.graphique import FenetreGraphique
             FenetreGraphique(self.fenetre)
-        except ImportError: 
+        except ImportError:
             messagebox.showerror(
                 "Erreur",
                 "Le module graphique n'est pas disponible"
+            )
+        except Exception as e:
+            # Éviter une trace Tkinter silencieuse si le tracé échoue
+            messagebox.showerror(
+                "Erreur",
+                f"Impossible d'ouvrir la fenêtre graphique :\n{e}"
             )
     
     # =========================================================================

@@ -19,9 +19,14 @@ SANS utiliser matplotlib (on dessine directement sur un Canvas tkinter).
 ================================================================================
 """
 
+import re
 import customtkinter as ctk
 from tkinter import Canvas, messagebox
-from src.calculateur import calculer
+from src.calculateur import (
+    calculer,
+    obtenir_dernier_resultat,
+    definir_dernier_resultat,
+)
 from src.exceptions import CalculatriceError
 
 
@@ -57,7 +62,11 @@ class FenetreGraphique:
         
         self.largeur_canvas = 800  # Largeur du canvas en pixels
         self.hauteur_canvas = 600  # Hauteur du canvas en pixels
-        
+
+        # Dernière fonction tracée (None si aucune) : permet de la redessiner
+        # automatiquement après un zoom.
+        self.fonction_courante = None
+
         # =====================================================================
         # CRÉER L'INTERFACE
         # =====================================================================
@@ -336,65 +345,93 @@ class FenetreGraphique:
         """
         # Récupérer la fonction
         fonction_str = self.entry_fonction.get().strip()
-        
+
         if not fonction_str:
             messagebox.showwarning("Attention", "Veuillez entrer une fonction !")
             return
-        
+
+        # Mémoriser la fonction affichée pour pouvoir la redessiner après un
+        # zoom (sinon la courbe disparaissait au premier zoom).
+        self.fonction_courante = fonction_str
+        self._tracer(fonction_str, silencieux=False)
+
+    def _tracer(self, fonction_str, silencieux=False):
+        """
+        Trace la courbe d'une fonction sur la grille.
+
+        Args:
+            fonction_str: La fonction de x à tracer
+            silencieux: Si True, ne pas afficher de boîte de dialogue en cas
+                d'échec (utilisé lors d'un zoom automatique)
+        """
         # Redessiner la grille
         self.dessiner_grille()
-        
+
         # =====================================================================
         # CALCULER LES POINTS DE LA COURBE
         # =====================================================================
         points = []
         nb_points = 1000  # Nombre de points à calculer (plus = plus lisse)
-        
+
         pas = (self.x_max - self.x_min) / nb_points
-        
+
         erreurs = 0  # Compter les erreurs
-        
+
+        # Le calcul met à jour le dernier résultat global (utilisé par ANS).
+        # On le sauvegarde pour le restaurer à la fin : dessiner une courbe ne
+        # doit pas remplacer le résultat courant de la calculatrice.
+        resultat_avant_dessin = obtenir_dernier_resultat()
+
         for i in range(nb_points + 1):
             x_math = self.x_min + i * pas
-            
-            # Remplacer 'x' par la valeur actuelle dans la fonction
-            expression = fonction_str.replace('x', f'({x_math})')
-            
-            try: 
+
+            # Remplacer la variable 'x' par la valeur actuelle. On utilise un
+            # motif à limites de mot : un simple .replace('x', ...) corrompait
+            # les noms de fonctions contenant un x (« exp(x) » devenait
+            # « e(-2.0)p((-2.0)) », « max(x,0) » devenait « ma(-2.0)((-2.0),0) »).
+            expression = re.sub(
+                r'(?<![A-Za-z])x(?![A-Za-z])', f'({x_math})', fonction_str
+            )
+
+            try:
                 # Calculer y = f(x)
                 y_math = calculer(expression)
-                
+
                 # Vérifier que y est dans les limites (éviter les infinis)
-                if abs(y_math) < 1e6: 
+                if abs(y_math) < 1e6:
                     x_pixel = self._math_vers_pixel_x(x_math)
                     y_pixel = self._math_vers_pixel_y(y_math)
                     points.append((x_pixel, y_pixel))
-                else: 
+                else:
                     # Valeur trop grande, on ignore ce point
                     points.append(None)
-            
-            except CalculatriceError: 
+
+            except CalculatriceError:
                 # Erreur de calcul (ex: ln(-5), division par 0)
                 erreurs += 1
                 points.append(None)
-            
-            except Exception: 
+
+            except Exception:
                 # Autre erreur
                 erreurs += 1
                 points.append(None)
-        
+
+        # Restaurer le dernier résultat d'avant le tracé
+        definir_dernier_resultat(resultat_avant_dessin)
+
         # =====================================================================
         # DESSINER LA COURBE
         # =====================================================================
         if not any(p is not None for p in points):
-            messagebox.showerror(
-                "Erreur",
-                "Impossible de calculer la fonction.\n"
-                "Vérifiez la syntaxe (ex: sin(x), x^2, ln(x))"
-            )
+            if not silencieux:
+                messagebox.showerror(
+                    "Erreur",
+                    "Impossible de calculer la fonction.\n"
+                    "Vérifiez la syntaxe (ex: sin(x), x^2, ln(x))"
+                )
             self.label_info_bas.configure(text="Erreur de calcul")
             return
-        
+
         # Dessiner les segments entre les points consécutifs
         for i in range(len(points) - 1):
             if points[i] is not None and points[i + 1] is not None:
@@ -478,9 +515,9 @@ class FenetreGraphique:
         self.x_max = centre_x + largeur_x / 2
         self.y_min = centre_y - hauteur_y / 2
         self.y_max = centre_y + hauteur_y / 2
-        
-        # Redessiner
-        self.dessiner_grille()
+
+        # Redessiner (grille + courbe si une fonction est affichée)
+        self._redessiner()
         self.label_info_bas.configure(text="🔍 Zoom avant appliqué")
     
     def zoom_moins(self):
@@ -499,11 +536,11 @@ class FenetreGraphique:
         self.x_max = centre_x + largeur_x
         self.y_min = centre_y - hauteur_y
         self.y_max = centre_y + hauteur_y
-        
-        # Redessiner
-        self.dessiner_grille()
+
+        # Redessiner (grille + courbe si une fonction est affichée)
+        self._redessiner()
         self.label_info_bas.configure(text="🔍 Zoom arrière appliqué")
-    
+
     def reinitialiser_zoom(self):
         """
         Réinitialise le zoom aux valeurs par défaut (-10 à 10).
@@ -512,13 +549,25 @@ class FenetreGraphique:
         self.x_max = 10.0
         self.y_min = -10.0
         self.y_max = 10.0
-        
-        self.dessiner_grille()
+
+        self._redessiner()
         self.label_info_bas.configure(text="🔄 Zoom réinitialisé")
-    
+
     def effacer_canvas(self):
         """
         Efface tout le canvas et redessine juste la grille.
         """
+        # Oublier la fonction : elle ne doit pas réapparaître au prochain zoom.
+        self.fonction_courante = None
         self.dessiner_grille()
         self.label_info_bas.configure(text="🗑️ Canvas effacé")
+
+    def _redessiner(self):
+        """
+        Redessine la grille, puis la courbe de la fonction affichée si elle
+        existe (utilisé après un changement de zoom).
+        """
+        if self.fonction_courante:
+            self._tracer(self.fonction_courante, silencieux=True)
+        else:
+            self.dessiner_grille()

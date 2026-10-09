@@ -97,10 +97,18 @@ def calculer(expression:  str, utiliser_degres=False) -> float:
     
     # ÉTAPE 3 : Évaluation
     resultat = evaluer_rpn(rpn, utiliser_degres)
-    
+
+    # Détecter les résultats non finis (dépassement de capacité, ex: 9^400 ou
+    # exp(1000)) et lever une erreur claire. Sans ce test, on renvoyait « inf »
+    # et l'affichage plantait avec « cannot convert float infinity to integer ».
+    if resultat != resultat or abs(resultat) == float('inf'):
+        raise ExpressionInvalideError(
+            "Résultat trop grand (dépassement de capacité)"
+        )
+
     # Mettre à jour le dernier résultat pour ANS
     definir_dernier_resultat(resultat)
-    
+
     return resultat
 
 
@@ -170,7 +178,9 @@ def tokenize(expression: str) -> list:
             # Vérifier si c'est une constante reconnue
             if mot_lower == 'pi':
                 tokens.append('PI') # garder en majuscules pour la constante
-            elif mot_lower == 'e' and (i >= len(expression) or not expression[i] != 'x'):
+            elif mot_lower == 'e':
+                # Le mot entier a déjà été lu : « e » est forcément la constante
+                # d'Euler (« exp » est lu comme un seul mot et n'arrive pas ici).
                 tokens.append('E') # garder en majuscules pour la constante
             elif mot_lower == 'ans':
                 tokens.append('ANS') # garder en majuscules pour la constante
@@ -183,17 +193,18 @@ def tokenize(expression: str) -> list:
         # CAS 3 : SIGNE MOINS -> UNAIRE OU SOUSTRACTION ? 
         #=====================================================================
         elif char == '-':
-            # Le moins est UNAIRE si : 
+            # Le moins est UNAIRE si :
             # - C'est le premier token
             # - Le token précédent est un opérateur (+, -, *, /, %)
             # - Le token précédent est une parenthèse ouvrante (
             # - Le token précédent est une virgule ,
-            
+            # - Le token précédent est un moins unaire (ex: « 2*--3 »)
+
             est_unaire = (
                 len(tokens) == 0 or
-                tokens[-1] in ['+', '-', '*', '/', '%', '^', '(', ',']
+                tokens[-1] in ['+', '-', '*', '/', '%', '^', '(', ',', 'UNARY_MINUS']
             )
-            
+
             if est_unaire:
                 # C'est un moins unaire -> on l'ajoute comme token spécial
                 tokens.append('UNARY_MINUS')
@@ -201,16 +212,16 @@ def tokenize(expression: str) -> list:
                 # C'est une soustraction
                 tokens.append('-')
             i += 1
-        
+
         #=====================================================================
         # CAS 4 :  SIGNE PLUS UNAIRE (ignoré)
         #=====================================================================
-        elif char == '+': 
+        elif char == '+':
             est_unaire = (
                 len(tokens) == 0 or
-                tokens[-1] in ['+', '-', '*', '/', '%', '^', '(', ',']
+                tokens[-1] in ['+', '-', '*', '/', '%', '^', '(', ',', 'UNARY_MINUS']
             )
-            
+
             if not est_unaire:
                 # C'est une addition
                 tokens.append('+')
@@ -388,13 +399,22 @@ def infix_to_rpn(tokens: list) -> list:
                         output.append(stack.pop())
                     else:
                         break
-                    
+
             stack.append(token)
-    
+
+        #=====================================================================
+        # TOKEN INCONNU -> erreur explicite
+        #=====================================================================
+        # Sans ce cas, un token non reconnu (ex: 'a', '1.2.3') était
+        # silencieusement ignoré, ce qui produisait plus loin le message
+        # trompeur « opérandes manquants ».
+        else:
+            raise ExpressionInvalideError(f"Token inconnu : '{token}'")
+
     # Vider la pile
-    while stack: 
+    while stack:
         output.append(stack.pop())
-    
+
     return output
 
 
@@ -611,6 +631,13 @@ def valeur_absolue(x: float) -> float:
 def modulo(a: float, b:  float) -> float:
     """Calcule a % b (reste de la division)."""
     quotient = a / b
+
+    # Diviseur dénormalisé (ex: ~5e-324) : a/b vaut l'infini et int() lèverait
+    # un OverflowError non capturé. Le vrai reste est alors négligeable devant
+    # a : on renvoie 0.0.
+    if quotient != quotient or abs(quotient) == float('inf'):
+        return 0.0
+
     if quotient >= 0:
         quotient_floor = int(quotient)
     else:
@@ -645,14 +672,26 @@ def puissance(base: float, exposant: float) -> float:
     """
     if exposant == 0:
         return 1.0
+
+    if exposant < 0:
+        # 0^-n = 1/0 : indéfini (avant, on renvoyait 0.0 à tort)
+        if base == 0:
+            raise DivisionParZeroError()
+        return 1.0 / puissance(base, -exposant)
+
     if base == 0:
         return 0.0
+
     if exposant == 1:
         return float(base)
-    
-    if exposant < 0:
-        return 1.0 / puissance(base, -exposant)
-    
+
+    # Une puissance non entière d'un nombre négatif n'est pas réelle : sans ce
+    # garde-fou, Python renvoyait un nombre complexe qui cassait l'affichage.
+    if base < 0 and exposant != int(exposant):
+        raise ExpressionInvalideError(
+            "Puissance non entière d'un nombre négatif (résultat non réel)"
+        )
+
     if exposant == int(exposant):
         resultat = 1.0
         for _ in range(int(exposant)):
@@ -762,11 +801,16 @@ def tangente(x: float) -> float:
 
 
 def _normaliser_angle(x: float) -> float:
-    """Normalise un angle dans [-π, π]."""
-    while x > PI:
+    """
+    Normalise un angle dans [-π, π].
+
+    Utilise l'opérateur modulo pour rester en temps constant : avec des
+    boucles « while », un angle comme sin(1000000000000) aurait nécessité
+    des milliards d'itérations (blocage de l'application).
+    """
+    x = x % (2 * PI)  # résultat dans [0, 2π[
+    if x > PI:
         x -= 2 * PI
-    while x < -PI:
-        x += 2 * PI
     return x
 
 #=============================================================================
@@ -829,25 +873,38 @@ def logarithme_neperien(x: float) -> float:
     """
     if x <= 0:
         raise LogarithmeError(x)
-    
+
     if x == 1:
         return 0.0
-    
-    # Pour améliorer la convergence, on utilise la transformation : 
+
+    # Pour améliorer la convergence, on utilise la transformation :
     # ln(x) = 2 * artanh((x-1)/(x+1))
-    # où artanh(u) = u + u³/3 + u⁵/5 + ... 
-    
+    # où artanh(u) = u + u³/3 + u⁵/5 + ...
+    #
+    # La série ne converge rapidement que si u reste petit, c'est-à-dire pour
+    # x proche de 1. On ramène donc d'abord x dans l'intervalle [1, 2[ en
+    # divisant/multipliant par 2, puis on ajoute k * ln(2).
+    # Sans cette réduction, ln(1000) valait 6.205 au lieu de 6.907...
+    ln2 = 0.6931471805599453
+    k = 0
+    while x >= 2.0:
+        x /= 2.0
+        k += 1
+    while x < 1.0:
+        x *= 2.0
+        k -= 1
+
     u = (x - 1) / (x + 1)
     u_carre = u * u
-    
+
     resultat = 0.0
     terme = u
-    
+
     for n in range(100):  # 100 itérations pour bonne précision
         resultat += terme / (2 * n + 1)
         terme *= u_carre
-    
-    return 2 * resultat
+
+    return 2 * resultat + k * ln2
 
 
 def logarithme_base10(x: float) -> float:
@@ -895,16 +952,30 @@ def exponentielle(x:  float) -> float:
         >>> exponentielle(1)
         2.718281828...  (≈ E)
     """
+    # Réduction d'intervalle : la série ci-dessous ne converge rapidement que
+    # pour |x| petit. Avec 100 termes, exp(1000) valait 1.19e141 au lieu de
+    # 1.97e434 (les termes ne deviennent négligeables qu'après n ≈ x).
+    # On ramène donc l'argument dans [-1, 1] puis on élève au carré k fois :
+    #     e^x = (e^(x / 2^k))^(2^k)
+    k = 0
+    while valeur_absolue(x) > 1:
+        x /= 2.0
+        k += 1
+
     # Série de Taylor :  e^x = Σ(n=0 à ∞) x^n / n!
     resultat = 1.0  # Premier terme (x^0 / 0!  = 1)
     terme = 1.0
-    
-    for n in range(1, 100):  # 100 termes suffisent
+
+    for n in range(1, 100):  # 100 termes suffisent pour |x| <= 1
         terme *= x / n  # Calcul efficace du terme suivant
         resultat += terme
-        
+
         # Arrêter si le terme devient négligeable
         if valeur_absolue(terme) < 1e-15:
             break
-    
+
+    # Élever au carré k fois pour revenir à l'argument d'origine
+    for _ in range(k):
+        resultat *= resultat
+
     return resultat

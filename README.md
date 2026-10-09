@@ -1,9 +1,13 @@
 # Calculatrice Tkinter — Version 3.1
 
-Dernière mise à jour : 2026-01-18  
+Dernière mise à jour : 2026-10-09  
 Version actuelle : **3.1**
 
-Une application de calculatrice graphique légère développée en Python avec Tkinter, conçue pour combiner simplicité d'utilisation, fiabilité et petites fonctionnalités avancées pour un usage quotidien.
+Une calculatrice scientifique avec interface graphique (CustomTkinter). Le
+moteur de calcul est écrit en Python pur : tokenisation, conversion en notation
+polonaise inversée (RPN), évaluation, et fonctions trigonométriques /
+logarithmiques calculées par séries de Taylor — sans `eval` ni bibliothèque
+mathématique externe.
 
 ---
 
@@ -17,6 +21,11 @@ Une application de calculatrice graphique légère développée en Python avec T
   - [Installation pas à pas](#installation-pas-à-pas)
   - [Exemples de commandes](#exemples-de-commandes)
 - [Utilisation](#utilisation)
+- [Syntaxe](#syntaxe)
+- [Raccourcis clavier](#raccourcis-clavier)
+- [Tests](#tests)
+- [Structure du projet](#structure-du-projet)
+- [Limitations connues](#limitations-connues)
 - [Contribuer](#contribuer)
 - [Contributeurs](#contributeurs)
 - [Licence](#licence)
@@ -25,111 +34,195 @@ Une application de calculatrice graphique légère développée en Python avec T
 ---
 
 ## Aperçu
-Cette calculatrice vise à fournir une interface claire pour les opérations arithmétiques basiques et quelques fonctionnalités étendues (mémoire, historique, gestion d'erreurs). Le projet est orienté vers la pédagogie et la facilité d'extension : le code est volontairement simple et commenté pour que d'autres puisse s'en inspirer ou l'améliorer.
+Cette calculatrice fournit une interface claire pour les opérations
+arithmétiques et un ensemble de fonctions scientifiques (racines, logarithmes,
+exponentielle, trigonométrie en radians et en degrés, puissances). Elle gère
+explicitement les erreurs (division par zéro, racine d'un nombre négatif,
+logarithme d'un nombre ≤ 0, tangente non définie…) et garde un historique des
+calculs. Le projet est orienté vers la pédagogie : le code est découpé en
+modules commentés pour être facile à lire et à étendre.
 
 ## Fonctionnalités principales
-- Opérations basiques : addition, soustraction, multiplication, division.
-- Gestion des erreurs (division par zéro, saisie invalide).
-- Support clavier (saisie via le clavier numérique et touches opérateurs).
-- Mémoire simple (M+, M-, MR, MC).
-- Historique des calculs (consultable dans l'interface).
-- Interface responsive adaptée à un usage bureau.
+- **Opérations** : addition, soustraction, multiplication, division, modulo `%`, puissance `^`.
+- **Fonctions** : `sqrt`, `sqr`, `abs`, `inv`, `ln`, `log`, `exp`.
+- **Trigonométrie** : `sin`, `cos`, `tan` (radians) et `sind`, `cosd`, `tand` (degrés).
+- **Comparaison** : `min(a,b)` et `max(a,b)`.
+- **Constantes** : `PI`, `E` et `ANS` (dernier résultat).
+- **Modes** : `RAD`/`DEG` pour la trigonométrie, `DEC`/`FRAC` (décimal ou fraction).
+- **Pourcentages** : `100 + 20%` → 120 (TVA), `200 - 15%` → 170 (réduction).
+- **Historique** : consultation, recherche, export en CSV/TXT, effacement.
+- **Graphiques** : tracé de fonctions de `x` sur un canevas, avec zoom.
+- **Gestion des erreurs** : messages explicites, l'application ne plante pas.
+- **Support clavier** et bouton « Copier » du résultat.
 
 ## Version actuelle
 - Version : **3.1**
-- Etat : stable, corrections de bugs et améliorations d'accessibilité.
+- État : stable.
 
 ## Historique des versions (évolution)
-- 1.0 — Première version publique
-  - Mise en place de l'interface Tkinter de base.
-  - Opérations arithmétiques et boutons graphiques.
-- 1.1 — Corrections mineures
-  - Correction des bugs d'affichage et gestion basique des entrées invalides.
-- 1.5 — Amélioration de l'expérience utilisateur
-  - Ajout du support clavier.
-  - Ajustement du layout pour meilleures dimensions d'écran.
-- 2.0 — Refactor et nouvelle ergonomie
-  - Réorganisation du code en modules.
-  - Nouvelle apparence (thème clair) et meilleure gestion des événements.
-- 2.5 — Fonctionnalités avancées
-  - Ajout de la mémoire (M+, M-, MR, MC).
-  - Ajout d'un panneau d'historique pour revenir sur les calculs précédents.
-- 3.0 — Robustesse et tests
-  - Renforcement de la gestion des erreurs.
-  - Meilleures validations des entrées et nettoyage du code.
-  - Ajout d'un petit jeu de tests unitaires (si présent dans le dépôt).
-- 3.1 — Améliorations d'accessibilité et performance
-  - Corrections de bugs signalés (rendus, comportements de la mémoire).
-  - Optimisations mineures de performance au lancement.
-  - Améliorations d'accessibilité clavier (focus, labels lisibles pour lecteurs d'écran).
-  - Mise à jour de la documentation et du README.
+- **1.0** — Première version : interface Tkinter de base et opérations arithmétiques (`bd9ecd8`).
+- **Fonctions scientifiques** — nombres négatifs, `sqrt`, modulo `%`, `abs`, `sin`/`cos`/`tan` (`963bcbf`).
+- **3.0** — `ln`, `log`, `exp`, puissance `^`, `inv`, `sqr` ; constantes `PI`/`E`/`ANS` ;
+  trigonométrie en degrés (`sind`, `cosd`, `tand`) ; affichage en fractions ;
+  historique (recherche, export CSV/TXT) ; graphiques ; calcul de pourcentage (`036a2d5`).
+- **3.1** — Corrections d'affichage et du validateur (`61efbe3`).
+- **Documentation** — ajout du README (`000db75`).
 
-> Remarque : pour la liste complète des commits et détails techniques, consultez l'historique Git du dépôt.
+> Pour la liste complète des commits et les détails techniques, consultez l'historique Git du dépôt.
 
 ## Installation
 
 ### Prérequis
-- Python 3.8 ou supérieur.
-- Tkinter (généralement inclus avec Python sur Windows/macOS ; sous certaines distributions Linux, paquet séparé).
-- (Optionnel) virtualenv/venv pour isoler l'environnement.
+- **Python 3.8 ou plus récent** (testé sous Python 3.13).
+- **Tkinter** (généralement inclus avec Python sous Windows/macOS ; paquet séparé sous certaines distributions Linux).
+- (Optionnel) `venv`/`virtualenv` pour isoler l'environnement.
 
-Dépendances externes :
-- Le projet utilise principalement la bibliothèque standard. S'il existe un fichier `requirements.txt` dans le dépôt, installez les dépendances listées.
+Dépendance externe :
+- **`customtkinter`** (interface graphique moderne). Le moteur de calcul, lui,
+  n'utilise que la bibliothèque standard. La dépendance est listée dans
+  `requirements.txt`.
 
 ### Installation pas à pas (recommandée)
 1. Cloner le dépôt :
-   - git clone https://github.com/Manonsigilla/calculatrice-tkinter.git
-   - cd calculatrice-tkinter
+   - `git clone https://github.com/Manonsigilla/calculatrice-tkinter.git`
+   - `cd calculatrice-tkinter`
 2. (Optionnel) Créer et activer un environnement virtuel :
-   - python3 -m venv .venv
-   - Sous Linux/macOS : source .venv/bin/activate
-   - Sous Windows : .venv\Scripts\activate
-3. Installer les dépendances (si `requirements.txt` existe) :
-   - pip install -r requirements.txt
+   - `python -m venv .venv`
+   - Sous Linux/macOS : `source .venv/bin/activate`
+   - Sous Windows : `.venv\Scripts\activate`
+3. Installer les dépendances :
+   - `pip install -r requirements.txt`
 4. Vérifier que Tkinter est disponible :
-   - Sous Debian/Ubuntu : sudo apt-get install python3-tk
-   - Sous Fedora : sudo dnf install python3-tkinter
-   - Sous macOS : Tkinter est inclus dans la distribution python.org. Si installé via Homebrew, vérifier les paquets correspondants.
-   - Sous Windows : Tkinter est généralement inclus dans l'installateur officiel de Python.
-5. Lancer l'application :
-   - python3 calculatrice.py
-   - (Remplacez `calculatrice.py` par le nom du fichier principal si différent.)
+   - Debian/Ubuntu : `sudo apt-get install python3-tk`
+   - Fedora : `sudo dnf install python3-tkinter`
+   - macOS : Tkinter est inclus dans la distribution python.org.
+   - Windows : Tkinter est inclus dans l'installateur officiel de Python.
+5. Lancer l'application (depuis la **racine du projet**) :
+   - `python -m src.main`
+
+> ⚠️ `python src/main.py` **ne fonctionne pas** : les modules s'importent avec le
+> préfixe `src.` (ex. `from src.interface import …`), ce qui exige que la racine
+> du projet soit dans le `sys.path` — c'est le cas avec `python -m src.main`.
 
 ### Exemples de commandes
-- Cloner et lancer rapidement :
-  - git clone https://github.com/Manonsigilla/calculatrice-tkinter.git && cd calculatrice-tkinter
-  - python3 calculatrice.py
+```bash
+git clone https://github.com/Manonsigilla/calculatrice-tkinter.git && cd calculatrice-tkinter
+pip install -r requirements.txt
+python -m src.main
+```
 
-Si vous rencontrez une erreur indiquant l'absence de module Tkinter, reportez-vous à la section "Prérequis" ci-dessus et installez le paquet système approprié.
+Si vous rencontrez une erreur indiquant l'absence du module Tkinter, reportez-vous
+à la section « Prérequis » ci-dessus et installez le paquet système approprié.
 
 ## Utilisation
-- Saisir les chiffres et les opérations à l'aide de la souris ou du clavier.
-- Utiliser les boutons mémoire pour stocker/recuperer des valeurs :
-  - M+ : ajouter la valeur affichée à la mémoire
-  - M- : soustraire la valeur affichée de la mémoire
-  - MR : rappeler la mémoire
-  - MC : effacer la mémoire
-- L'historique conserve les calculs précédents ; cliquer sur un élément de l'historique pour le réutiliser (si la fonctionnalité est activée).
-- En cas d'erreur (ex. division par zéro), un message lisible est affiché et l'application reste stable.
+- Saisir les chiffres et les opérations à l'aide de la souris **ou** du clavier.
+- Les boutons `π`, `e` et `ANS` insèrent les constantes correspondantes (`ANS` =
+  dernier résultat).
+- Basculer `RAD`/`DEG` pour la trigonométrie, `DEC`/`FRAC` pour afficher le
+  résultat en décimal ou en fraction.
+- Le bouton « Copier » place le dernier résultat dans le presse-papier.
+- « Graph » ouvre une fenêtre de tracé : entrer une fonction de `x`
+  (ex. `sin(x)`, `x^2`, `ln(x)`, `2*x+3`), puis dessiner, zoomer, réinitialiser.
+- L'historique (`Voir`, `Rechercher`, `Export`, `Effacer`) conserve les calculs
+  précédents et permet de les rechercher et de les exporter.
+- En cas d'erreur (ex. division par zéro), un message lisible est affiché et
+  l'application reste stable.
+
+## Syntaxe
+
+| Catégorie | Éléments |
+|---|---|
+| Opérateurs | `+` `-` `*` `/` `%` (modulo) `^` (puissance) |
+| Fonctions | `sqrt(x)` `sqr(x)` `abs(x)` `inv(x)` `ln(x)` `log(x)` `exp(x)` |
+| Trigonométrie | `sin(x)` `cos(x)` `tan(x)` — `sind(x)` `cosd(x)` `tand(x)` en degrés |
+| Comparaison | `min(a,b)` `max(a,b)` (exactement 2 arguments) |
+| Constantes | `PI` `E` `ANS` |
+| Regroupement | `(` `)` |
+
+**Exemples**
+
+```
+3 + 5 * 2            → 13
+(2 + 3) * 4          → 20
+2^3^2                → 512          (puissance associative à droite)
+sqrt(16) + sqr(3)    → 13
+min(3, 7) * 2        → 6
+ln(E)                → 1
+exp(2)               → 7.389…
+100 + 20%            → 120
+```
+
+## Raccourcis clavier
+
+| Touche | Action |
+|---|---|
+| `Entrée` | Calculer |
+| `Échap` | Tout effacer |
+| `Retour arrière` | Effacer le dernier caractère |
+| `0`–`9` | Chiffres |
+| `+` `-` `*` `/` `%` `^` | Opérateurs |
+| `(` `)` `.` `,` | Parenthèses et séparateurs |
+
+## Tests
+
+40 tests unitaires (calculateur, validateur, historique) :
+
+```bash
+python -m pytest tests/ -v
+```
+
+Ou sans pytest :
+
+```bash
+python -m unittest discover -s tests
+```
+
+## Structure du projet
+
+```
+calculatrice-tkinter/
+├── src/
+│   ├── main.py          # Point d'entrée
+│   ├── interface.py     # Interface graphique (CustomTkinter)
+│   ├── calculateur.py   # Moteur de calcul (tokenizer + RPN)
+│   ├── validateur.py    # Validation des expressions
+│   ├── graphique.py     # Tracé de fonctions
+│   ├── fractions.py     # Conversion décimal → fraction
+│   ├── historique.py    # Historique persistant (JSON)
+│   └── exceptions.py    # Erreurs personnalisées
+├── tests/               # Tests unitaires (unittest)
+├── requirements.txt
+└── README.md
+```
+
+## Limitations connues
+- La **virgule** est le séparateur d'arguments de `min`/`max`, pas un séparateur
+  décimal : écrire `3.5`, pas `3,5`.
+- La **multiplication implicite** n'est pas supportée : écrire `2*PI`, pas `2PI`.
+- La **notation scientifique** n'est pas supportée : écrire `1000`, pas `1e3`.
+- Le **moins unaire** est prioritaire sur la puissance : `-2^2` vaut `4`
+  (et non `-4` comme dans la convention mathématique usuelle).
+- Un résultat trop grand (dépassement de capacité, ex. `9^400`) donne une erreur
+  explicite plutôt qu'un nombre infini.
 
 ## Contribuer
-Les contributions sont bienvenues ! Voici quelques lignes directrices :
+Les contributions sont bienvenues ! Quelques lignes directrices :
 1. Forkez le dépôt et créez une branche de travail nommée `feature/` ou `fix/` suivie d'une courte description.
 2. Faites des commits atomiques et descriptifs.
 3. Ouvrez une pull request en décrivant clairement l'objectif et les changements.
 4. Respectez les bonnes pratiques Python (PEP8) et commentez le code si nécessaire.
 5. Si vous ajoutez des dépendances, justifiez-les et mettez à jour `requirements.txt`.
 
-Si vous n'êtes pas sûr.e de la meilleure façon d'implémenter une amélioration, ouvrez d'abord une issue pour discussion.
+Si vous n'êtes pas sûr·e de la meilleure façon d'implémenter une amélioration,
+ouvrez d'abord une issue pour discussion.
 
 ## Contributeurs
 - Manon Sigilla — GitHub: [@Manonsigilla](https://github.com/Manonsigilla)
-- Angie Valencia — GitHub: [@Angie](https://github.com/angie-valencia)
-- Louis Varennes — GitHub: [@Louis](https://github.com/louis-varennes)
-
+- Angie Valencia — GitHub: [@angie-valencia](https://github.com/angie-valencia)
+- Louis Varennes — GitHub: [@louis-varennes](https://github.com/louis-varennes)
 
 ## Licence
-Libre d'utilisation, projet scolaire
+Libre d'utilisation, projet scolaire.
 
 ## Contact
 Pour questions, suggestions ou signalement de bugs :
@@ -138,4 +231,5 @@ Pour questions, suggestions ou signalement de bugs :
 
 ---
 
-Merci d'utiliser ce projet ! Les retours et contributions sont appréciés pour améliorer la stabilité, l'ergonomie et les fonctionnalités.
+Merci d'utiliser ce projet ! Les retours et contributions sont appréciés pour
+améliorer la stabilité, l'ergonomie et les fonctionnalités.
